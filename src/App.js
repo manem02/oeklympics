@@ -116,7 +116,6 @@ function Leaderboard({ scores }) {
       .sort((a, b) => b.total - a.total);
 
   const leader = rankedTeams[0];
-  const rest = rankedTeams.slice(1);
 
   // Scroll-driven fade: the photo holds through the rankings, then dissolves
   // into the Sunrise gradient as the event-breakdown section comes into view.
