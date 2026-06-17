@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, onValue, set, push, remove } from 'firebase/database';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
@@ -10,7 +10,7 @@ import './App.css';
 const firebaseConfig = {
   apiKey: "AIzaSyBOv2UDlwB0oqvkvj-6EivkkfeO11ZNNHQ",
   authDomain: "oeklympics.firebaseapp.com",
-  databaseURL: "https://oeklympics-default-rtdb.firebaseio.com",
+  databaseURL: "https://oeklympics-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "oeklympics",
   storageBucket: "oeklympics.firebasestorage.app",
   messagingSenderId: "323608790037",
@@ -320,34 +320,33 @@ function Leaderboard({ scores, comments, isAdmin }) {
   }, []);
 
   // ---- Animated rank changes (FLIP technique) ----
-  // Remember each row's screen position; when the order changes, animate
-  // each row from its old position to its new one.
+  // Store each row's last painted Y position. On each commit (before paint),
+  // if a row moved, play an explicit animation from its old position to the
+  // new one using the Web Animations API — more reliable than swapping
+  // transitions, which the browser can batch away in a single frame.
   const rowRefs = useRef({});
   const prevPositions = useRef({});
-  useEffect(() => {
-    const newPositions = {};
+  useLayoutEffect(() => {
     Object.keys(rowRefs.current).forEach((id) => {
       const el = rowRefs.current[id];
-      if (el) newPositions[id] = el.getBoundingClientRect().top;
-    });
-    // animate from old -> new
-    Object.keys(newPositions).forEach((id) => {
+      if (!el) return;
+      const newTop = el.getBoundingClientRect().top;
       const oldTop = prevPositions.current[id];
-      const newTop = newPositions[id];
-      const el = rowRefs.current[id];
-      if (oldTop != null && el && oldTop !== newTop) {
+      if (oldTop != null && oldTop !== newTop) {
         const delta = oldTop - newTop;
-        el.style.transform = `translateY(${delta}px)`;
-        el.style.transition = 'transform 0s';
-        // next frame: release to animate into place
-        requestAnimationFrame(() => {
-          el.style.transition = 'transform 0.55s cubic-bezier(0.16,1,0.3,1)';
-          el.style.transform = '';
-        });
+        if (typeof el.animate === 'function') {
+          el.animate(
+              [
+                { transform: `translateY(${delta}px)` },
+                { transform: 'translateY(0)' }
+              ],
+              { duration: 1000, easing: 'cubic-bezier(0.16,1,0.3,1)' }
+          );
+        }
       }
+      prevPositions.current[id] = newTop;
     });
-    prevPositions.current = newPositions;
-  }, [scores]);
+  });
 
   return (
       <div className="board">
