@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, onValue, set } from 'firebase/database';
+import { getDatabase, ref, onValue, set, push, remove } from 'firebase/database';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import './App.css';
 
@@ -67,6 +67,21 @@ const EVENTS = [
 ];
 
 // ============================================
+// FLOOR PASSWORDS for the live comment feed.
+// Each password maps to the floor name shown on the comment.
+// Change these strings any time — they're the only place passwords live.
+// NOTE: these are visible in the app's code to anyone who inspects it.
+// That's fine for a fun dorm feed; it just keeps out casual randoms.
+// ============================================
+const FLOOR_PASSWORDS = {
+  'oek@eg': 'EG',
+  'oek@1st': '1. Stock',
+  'oek@2nd': '2. Stock',
+  'oek@3rd': '3. Stock',
+  'oek@4th': '4. Stock'
+};
+
+// ============================================
 // SCROLL REVEAL HOOK
 // Adds class "in" when an element scrolls into view.
 // ============================================
@@ -109,9 +124,132 @@ function Reveal({ children, className = '' }) {
 }
 
 // ============================================
+// LIVE COMMENT FEED (public, floor-password gated)
+// ============================================
+function CommentFeed({ comments, isAdmin }) {
+  const [name, setName] = useState('');
+  const [text, setText] = useState('');
+  const [pass, setPass] = useState('');
+  const [error, setError] = useState('');
+  const [posting, setPosting] = useState(false);
+
+  // newest first
+  const list = Object.entries(comments || {})
+      .map(([id, c]) => ({ id, ...c }))
+      .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+  const handlePost = async (e) => {
+    e.preventDefault();
+    setError('');
+    const floor = FLOOR_PASSWORDS[pass.trim()];
+    if (!floor) {
+      setError('Incorrect floor password.');
+      return;
+    }
+    if (!text.trim()) {
+      setError('Write a message first.');
+      return;
+    }
+    setPosting(true);
+    try {
+      await push(ref(database, 'comments'), {
+        name: name.trim().slice(0, 30) || 'Anonymous',
+        floor,
+        text: text.trim().slice(0, 240),
+        ts: Date.now()
+      });
+      setText('');
+      // keep name + password so they can post again easily
+    } catch (err) {
+      setError('Could not post. Try again.');
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await remove(ref(database, `comments/${id}`));
+    } catch (err) {
+      alert('Could not delete comment.');
+    }
+  };
+
+  const timeAgo = (ts) => {
+    if (!ts) return '';
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return 'just now';
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  };
+
+  return (
+      <div className="comment-feed">
+        <h2 className="section-title">Live Commentary</h2>
+
+        <form className="comment-form glass" onSubmit={handlePost}>
+          <div className="comment-form-row">
+            <input
+                type="text"
+                placeholder="Your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={30}
+            />
+            <input
+                type="password"
+                placeholder="Floor password"
+                value={pass}
+                onChange={(e) => setPass(e.target.value)}
+            />
+          </div>
+          <textarea
+              placeholder="Say something… (e.g. EG is on fire 🔥)"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              maxLength={240}
+              rows={2}
+          />
+          <div className="comment-form-bottom">
+            <span className="char-count">{text.length}/240</span>
+            <button type="submit" disabled={posting}>
+              {posting ? 'Posting…' : 'Post'}
+            </button>
+          </div>
+          {error && <div className="comment-error">{error}</div>}
+        </form>
+
+        <div className="comment-list">
+          {list.length === 0 && (
+              <div className="comment-empty">No comments yet — be the first!</div>
+          )}
+          {list.map((c) => (
+              <div key={c.id} className="comment glass">
+                <div className="comment-head">
+                  <span className="comment-author">{c.name}</span>
+                  <span className="comment-floor">{c.floor}</span>
+                  <span className="comment-time">{timeAgo(c.ts)}</span>
+                  {isAdmin && (
+                      <button className="comment-del" onClick={() => handleDelete(c.id)} title="Delete">
+                        ✕
+                      </button>
+                  )}
+                </div>
+                <div className="comment-text">{c.text}</div>
+              </div>
+          ))}
+        </div>
+      </div>
+  );
+}
+
+// ============================================
 // LEADERBOARD VIEW (PUBLIC)
 // ============================================
-function Leaderboard({ scores }) {
+function Leaderboard({ scores, comments, isAdmin }) {
   const rankedTeams = TEAMS
       .map((team) => {
         let total = 0;
@@ -150,6 +288,36 @@ function Leaderboard({ scores }) {
     };
   }, []);
 
+  // ---- Animated rank changes (FLIP technique) ----
+  // Remember each row's screen position; when the order changes, animate
+  // each row from its old position to its new one.
+  const rowRefs = useRef({});
+  const prevPositions = useRef({});
+  useEffect(() => {
+    const newPositions = {};
+    Object.keys(rowRefs.current).forEach((id) => {
+      const el = rowRefs.current[id];
+      if (el) newPositions[id] = el.getBoundingClientRect().top;
+    });
+    // animate from old -> new
+    Object.keys(newPositions).forEach((id) => {
+      const oldTop = prevPositions.current[id];
+      const newTop = newPositions[id];
+      const el = rowRefs.current[id];
+      if (oldTop != null && el && oldTop !== newTop) {
+        const delta = oldTop - newTop;
+        el.style.transform = `translateY(${delta}px)`;
+        el.style.transition = 'transform 0s';
+        // next frame: release to animate into place
+        requestAnimationFrame(() => {
+          el.style.transition = 'transform 0.55s cubic-bezier(0.16,1,0.3,1)';
+          el.style.transform = '';
+        });
+      }
+    });
+    prevPositions.current = newPositions;
+  }, [scores]);
+
   return (
       <div className="board">
         {/* HERO: fixed photo background lives in CSS via .hero-bg */}
@@ -186,7 +354,11 @@ function Leaderboard({ scores }) {
             <h2 className="section-title">Full Rankings</h2>
             <div className="ranking-list">
               {rankedTeams.map((entry, idx) => (
-                  <div key={entry.id} className={`rank-row glass ${idx === 0 ? 'is-leader' : ''}`}>
+                  <div
+                      key={entry.id}
+                      ref={(el) => { rowRefs.current[entry.id] = el; }}
+                      className={`rank-row glass ${idx === 0 ? 'is-leader' : ''}`}
+                  >
                     <div className="rk">{idx + 1}</div>
                     <div className="nm">{entry.name}</div>
                     <div className="pts">
@@ -216,6 +388,10 @@ function Leaderboard({ scores }) {
                   </div>
               ))}
             </div>
+          </Reveal>
+
+          <Reveal className="comments-wrap">
+            <CommentFeed comments={comments} isAdmin={isAdmin} />
           </Reveal>
         </section>
       </div>
@@ -282,7 +458,7 @@ function AdminLogin({ onBack }) {
 // ============================================
 // ADMIN DASHBOARD
 // ============================================
-function AdminDashboard({ user, scores, onLogout }) {
+function AdminDashboard({ user, scores, comments, onLogout }) {
   const [editingEvent, setEditingEvent] = useState(null);
   const [eventScores, setEventScores] = useState({});
   const [saving, setSaving] = useState(false);
@@ -364,6 +540,43 @@ function AdminDashboard({ user, scores, onLogout }) {
               </div>
             </div>
         )}
+
+        <CommentModeration comments={comments} />
+      </div>
+  );
+}
+
+// ============================================
+// ADMIN COMMENT MODERATION
+// ============================================
+function CommentModeration({ comments }) {
+  const list = Object.entries(comments || {})
+      .map(([id, c]) => ({ id, ...c }))
+      .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+  const handleDelete = async (id) => {
+    try {
+      await remove(ref(database, `comments/${id}`));
+    } catch (err) {
+      alert('Could not delete comment.');
+    }
+  };
+
+  return (
+      <div className="moderation glass-solid">
+        <h2>Comments ({list.length})</h2>
+        {list.length === 0 && <p className="mod-empty">No comments yet.</p>}
+        <div className="mod-list">
+          {list.map((c) => (
+              <div key={c.id} className="mod-row">
+                <div className="mod-info">
+                  <strong>{c.name}</strong> <span className="mod-floor">{c.floor}</span>
+                  <div className="mod-text">{c.text}</div>
+                </div>
+                <button className="mod-del" onClick={() => handleDelete(c.id)}>Delete</button>
+              </div>
+          ))}
+        </div>
       </div>
   );
 }
@@ -374,6 +587,7 @@ function AdminDashboard({ user, scores, onLogout }) {
 export default function OeklympicsApp() {
   const [user, setUser] = useState(null);
   const [scores, setScores] = useState({});
+  const [comments, setComments] = useState({});
   const [loading, setLoading] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
 
@@ -389,6 +603,17 @@ export default function OeklympicsApp() {
         }
     );
 
+    const commentsRef = ref(database, 'comments');
+    const unsubscribeComments = onValue(
+        commentsRef,
+        (snapshot) => {
+          setComments(snapshot.exists() ? snapshot.val() : {});
+        },
+        (err) => {
+          console.error('Firebase comments read error:', err);
+        }
+    );
+
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
@@ -396,6 +621,7 @@ export default function OeklympicsApp() {
 
     return () => {
       unsubscribeScores();
+      unsubscribeComments();
       unsubscribeAuth();
     };
   }, []);
@@ -412,7 +638,7 @@ export default function OeklympicsApp() {
   if (user) {
     return (
         <div className="app-wrapper admin-bg">
-          <AdminDashboard user={user} scores={scores} onLogout={handleLogout} />
+          <AdminDashboard user={user} scores={scores} comments={comments} onLogout={handleLogout} />
         </div>
     );
   }
@@ -427,7 +653,7 @@ export default function OeklympicsApp() {
 
   return (
       <div className="app-wrapper">
-        <Leaderboard scores={scores} />
+        <Leaderboard scores={scores} comments={comments} isAdmin={false} />
         <button className="admin-fab" onClick={() => setShowLogin(true)}>
           🔐 Admin
         </button>

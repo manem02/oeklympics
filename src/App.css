@@ -353,3 +353,171 @@ body {
   .admin-header { flex-direction: column; text-align: center; }
   .events-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ============================================
+   LIVE COMMENT FEED
+   ============================================ */
+.comments-wrap { margin-top: 70px; }
+.comment-feed { max-width: 620px; margin: 0 auto; }
+
+.comment-form {
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.comment-form-row { display: flex; gap: 10px; }
+.comment-form-row input { flex: 1; min-width: 0; }
+
+.comment-form input,
+.comment-form textarea {
+  padding: 12px 14px;
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.22);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  width: 100%;
+  resize: vertical;
+}
+
+.comment-form input::placeholder,
+.comment-form textarea::placeholder { color: rgba(255,255,255,0.75); }
+
+.comment-form input:focus,
+.comment-form textarea:focus {
+  outline: none;
+  border-color: #fff;
+  background: rgba(255,255,255,0.3);
+}
+
+.comment-form-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.char-count { font-size: 0.78rem; color: rgba(255,255,255,0.8); }
+
+.comment-form button[type="submit"] {
+  padding: 10px 26px;
+  border: none;
+  border-radius: 10px;
+  background: #fff;
+  color: #c0506e;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.comment-form button[type="submit"]:hover:not(:disabled) { transform: scale(1.04); }
+.comment-form button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.comment-error {
+  background: rgba(192,57,43,0.9);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.comment-list { display: flex; flex-direction: column; gap: 12px; }
+
+.comment-empty {
+  text-align: center;
+  color: rgba(255,255,255,0.85);
+  padding: 20px;
+  font-style: italic;
+}
+
+.comment {
+  border-radius: 14px;
+  padding: 14px 18px;
+  color: #fff;
+  animation: commentIn 0.4s cubic-bezier(0.16,1,0.3,1);
+}
+
+@keyframes commentIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.comment-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+
+.comment-author { font-weight: 700; }
+.comment-floor {
+  background: rgba(255,255,255,0.25);
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.comment-time { color: rgba(255,255,255,0.7); font-size: 0.75rem; }
+.comment-del {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.comment-del:hover { background: rgba(255,255,255,0.2); color: #fff; }
+.comment-text { font-size: 1rem; line-height: 1.4; word-break: break-word; }
+
+/* ---- Admin comment moderation ---- */
+.moderation {
+  border-radius: 20px;
+  padding: 30px;
+  margin-top: 26px;
+}
+.moderation h2 { font-size: 1.4rem; color: #2a1520; margin-bottom: 18px; }
+.mod-empty { color: #9a6a78; }
+.mod-list { display: flex; flex-direction: column; gap: 10px; }
+.mod-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: #faf0f3;
+  border-radius: 10px;
+}
+.mod-info { flex: 1; color: #2a1520; }
+.mod-floor {
+  font-size: 0.75rem;
+  background: #ffd9e2;
+  color: #c0506e;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+.mod-text { font-size: 0.95rem; margin-top: 4px; word-break: break-word; }
+.mod-del {
+  background: #c0392b;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.mod-del:hover { background: #a93226; }
+
+@media (max-width: 768px) {
+  .comment-form-row { flex-direction: column; }
+}
