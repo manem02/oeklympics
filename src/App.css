@@ -221,6 +221,13 @@ body {
 }
 .reveal.in { opacity: 1; transform: translateY(0); }
 
+/* Safety net: if a browser doesn't run the reveal JS at all, never leave
+   content permanently invisible. */
+.no-js .reveal { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
+
 /* ============================================
    ADMIN FAB (floating login button)
    ============================================ */

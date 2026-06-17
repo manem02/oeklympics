@@ -75,19 +75,26 @@ function useReveal() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    const reveal = () => el.classList.add('in');
     const obs = new IntersectionObserver(
         (entries) => {
           entries.forEach((e) => {
             if (e.isIntersecting) {
-              e.target.classList.add('in');
+              reveal();
               obs.unobserve(e.target);
             }
           });
         },
-        { threshold: 0.12 }
+        { threshold: 0.08, rootMargin: '0px 0px -10% 0px' }
     );
     obs.observe(el);
-    return () => obs.disconnect();
+    // Fallback: if the observer hasn't fired within 1.2s (can happen on some
+    // mobile browsers with fixed layers), reveal anyway so content never stays hidden.
+    const fallback = setTimeout(reveal, 1200);
+    return () => {
+      obs.disconnect();
+      clearTimeout(fallback);
+    };
   }, []);
   return ref;
 }
