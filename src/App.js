@@ -127,9 +127,16 @@ function Reveal({ children, className = '' }) {
 // LIVE COMMENT FEED (public, floor-password gated)
 // ============================================
 function CommentFeed({ comments, isAdmin }) {
-  const [name, setName] = useState('');
+  // "Remember me" — prefill from the last time this person posted (stored on
+  // their own device). Wrapped in try/catch so a browser that blocks storage
+  // (private mode, etc.) just falls back to empty fields instead of crashing.
+  const readStored = (key) => {
+    try { return window.localStorage.getItem(key) || ''; } catch { return ''; }
+  };
+
+  const [name, setName] = useState(() => readStored('oek_name'));
   const [text, setText] = useState('');
-  const [pass, setPass] = useState('');
+  const [pass, setPass] = useState(() => readStored('oek_pass'));
   const [error, setError] = useState('');
   const [posting, setPosting] = useState(false);
 
@@ -158,8 +165,13 @@ function CommentFeed({ comments, isAdmin }) {
         text: text.trim().slice(0, 240),
         ts: Date.now()
       });
+      // Remember name + floor password on this device for next time.
+      try {
+        window.localStorage.setItem('oek_name', name.trim());
+        window.localStorage.setItem('oek_pass', pass.trim());
+      } catch { /* storage blocked — ignore, posting still worked */ }
       setText('');
-      // keep name + password so they can post again easily
+      // keep name + password in the fields so they can post again easily
     } catch (err) {
       setError('Could not post. Try again.');
     } finally {
@@ -173,6 +185,17 @@ function CommentFeed({ comments, isAdmin }) {
     } catch (err) {
       alert('Could not delete comment.');
     }
+  };
+
+  // Whether we currently have a remembered, valid floor password.
+  const rememberedFloor = FLOOR_PASSWORDS[pass.trim()];
+  const clearRemembered = () => {
+    try {
+      window.localStorage.removeItem('oek_name');
+      window.localStorage.removeItem('oek_pass');
+    } catch { /* ignore */ }
+    setName('');
+    setPass('');
   };
 
   const timeAgo = (ts) => {
@@ -191,6 +214,14 @@ function CommentFeed({ comments, isAdmin }) {
         <h2 className="section-title">Live Commentary</h2>
 
         <form className="comment-form glass" onSubmit={handlePost}>
+          {rememberedFloor && name.trim() && (
+              <div className="posting-as">
+                Posting as <strong>{name.trim()}</strong> · {rememberedFloor}
+                <button type="button" className="posting-as-clear" onClick={clearRemembered}>
+                  Not you?
+                </button>
+              </div>
+          )}
           <div className="comment-form-row">
             <input
                 type="text"
