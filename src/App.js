@@ -28,6 +28,19 @@ const HERO_IMG = `${process.env.PUBLIC_URL}/hero.jpg`;
 const LOGO_IMG = `${process.env.PUBLIC_URL}/oek_logo_white.png`;
 
 // ============================================
+// FULL ADMINS — these emails can ALSO moderate (delete) comments.
+// Any other logged-in account can edit scores but NOT moderate comments.
+// Add the exact email(s) of your main admin login here (lowercase).
+// ============================================
+const FULL_ADMINS = [
+  'admin@oeklympics.local'
+];
+
+function isFullAdmin(user) {
+  return !!user && FULL_ADMINS.includes((user.email || '').toLowerCase());
+}
+
+// ============================================
 // DATA
 // Each event/team has a stable `id` (DB key) and a display `name`.
 // Renaming later won't break stored scores.
@@ -531,6 +544,7 @@ function AdminDashboard({ user, scores, comments, onLogout }) {
           <h1>Admin Dashboard</h1>
           <div className="admin-user">
             <span>{user.email}</span>
+            <span className="admin-role">{isFullAdmin(user) ? 'Full admin' : 'Scores only'}</span>
             <button onClick={onLogout} className="logout-btn">Logout</button>
           </div>
         </div>
@@ -572,7 +586,7 @@ function AdminDashboard({ user, scores, comments, onLogout }) {
             </div>
         )}
 
-        <CommentModeration comments={comments} />
+        {isFullAdmin(user) && <CommentModeration comments={comments} />}
       </div>
   );
 }
