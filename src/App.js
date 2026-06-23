@@ -74,11 +74,11 @@ const EVENTS = [
 // That's fine for a fun dorm feed; it just keeps out casual randoms.
 // ============================================
 const FLOOR_PASSWORDS = {
-  'oek@eg': 'EG',
-  'oek@1st': '1. Stock',
-  'oek@2nd': '2. Stock',
-  'oek@3rd': '3. Stock',
-  'oek@4th': '4. Stock'
+  'oekheim-helden': 'EG',
+  'oekheim-legenden': '1. Stock',
+  'oekheim-champions': '2. Stock',
+  'oekheim-sieger': '3. Stock',
+  'oekheim-gladiatoren': '4. Stock'
 };
 
 // ============================================
@@ -320,32 +320,33 @@ function Leaderboard({ scores, comments, isAdmin }) {
   }, []);
 
   // ---- Animated rank changes (FLIP technique) ----
-  // Store each row's last painted Y position. On each commit (before paint),
-  // if a row moved, play an explicit animation from its old position to the
-  // new one using the Web Animations API — more reliable than swapping
-  // transitions, which the browser can batch away in a single frame.
+  // Measure each row's offsetTop (position within the list, independent of
+  // page scroll). When a row's position changes between renders, play a slide
+  // from its old spot to the new one via the Web Animations API. Using
+  // offsetTop (not getBoundingClientRect) means scrolling doesn't trigger
+  // false movements.
   const rowRefs = useRef({});
   const prevPositions = useRef({});
   useLayoutEffect(() => {
+    const next = {};
     Object.keys(rowRefs.current).forEach((id) => {
       const el = rowRefs.current[id];
       if (!el) return;
-      const newTop = el.getBoundingClientRect().top;
+      const newTop = el.offsetTop;
+      next[id] = newTop;
       const oldTop = prevPositions.current[id];
-      if (oldTop != null && oldTop !== newTop) {
+      if (oldTop != null && oldTop !== newTop && typeof el.animate === 'function') {
         const delta = oldTop - newTop;
-        if (typeof el.animate === 'function') {
-          el.animate(
-              [
-                { transform: `translateY(${delta}px)` },
-                { transform: 'translateY(0)' }
-              ],
-              { duration: 1000, easing: 'cubic-bezier(0.16,1,0.3,1)' }
-          );
-        }
+        el.animate(
+            [
+              { transform: `translateY(${delta}px)` },
+              { transform: 'translateY(0)' }
+            ],
+            { duration: 1000, easing: 'cubic-bezier(0.16,1,0.3,1)' }
+        );
       }
-      prevPositions.current[id] = newTop;
     });
+    prevPositions.current = next;
   });
 
   return (
