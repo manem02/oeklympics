@@ -514,16 +514,18 @@ function AdminDashboard({ user, scores, comments, onLogout }) {
       const existing = scores?.[editingEvent.id] || {};
       const filled = {};
       TEAMS.forEach((team) => {
-        filled[team.id] = existing[team.id] || 0;
+        // store as string so the input can hold partial values like "3."
+        filled[team.id] = String(existing[team.id] ?? 0);
       });
       setEventScores(filled);
     }
   }, [editingEvent, scores]);
 
-  const handleScoreChange = (teamId, newScore) => {
+  const handleScoreChange = (teamId, rawValue) => {
+    // keep whatever the user typed (including a trailing "."); validate on save
     setEventScores((prev) => ({
       ...prev,
-      [teamId]: Math.max(0, newScore)
+      [teamId]: rawValue
     }));
   };
 
@@ -531,7 +533,13 @@ function AdminDashboard({ user, scores, comments, onLogout }) {
     if (!editingEvent) return;
     setSaving(true);
     try {
-      await set(ref(database, `scores/${editingEvent.id}`), eventScores);
+      // convert the raw strings to clean non-negative numbers at save time
+      const numericScores = {};
+      TEAMS.forEach((team) => {
+        const n = parseFloat(eventScores[team.id]);
+        numericScores[team.id] = isNaN(n) || n < 0 ? 0 : n;
+      });
+      await set(ref(database, `scores/${editingEvent.id}`), numericScores);
       setEditingEvent(null);
     } catch (err) {
       alert('Error saving scores. Are you still logged in?');
@@ -560,8 +568,8 @@ function AdminDashboard({ user, scores, comments, onLogout }) {
                       <label>{team.name}</label>
                       <input
                           type="number"
-                          value={eventScores[team.id] ?? 0}
-                          onChange={(e) => handleScoreChange(team.id, parseFloat(e.target.value) || 0)}
+                          value={eventScores[team.id] ?? ''}
+                          onChange={(e) => handleScoreChange(team.id, e.target.value)}
                           min="0"
                           step="0.5"
                       />
