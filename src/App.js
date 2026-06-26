@@ -301,6 +301,7 @@ function Leaderboard({ scores, comments, isAdmin }) {
         EVENTS.forEach((event) => {
           total += scores?.[event.id]?.[team.id] || 0;
         });
+        total = Math.round(total * 10) / 10; // avoid 5.30000001 artifacts
         return { ...team, total };
       })
       .sort((a, b) => b.total - a.total);
@@ -560,8 +561,9 @@ function AdminDashboard({ user, scores, comments, onLogout }) {
                       <input
                           type="number"
                           value={eventScores[team.id] ?? 0}
-                          onChange={(e) => handleScoreChange(team.id, parseInt(e.target.value, 10) || 0)}
+                          onChange={(e) => handleScoreChange(team.id, parseFloat(e.target.value) || 0)}
                           min="0"
+                          step="0.5"
                       />
                     </div>
                 ))}
