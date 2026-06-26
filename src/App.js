@@ -76,7 +76,8 @@ const EVENTS = [
   { id: 'e20', name: 'Hot Dog Eating Contest' },
   { id: 'e21', name: 'Drawing of Johanna' },
   { id: 'e22', name: 'Questions About Johanna' },
-  { id: 'e23', name: 'Trivia' }
+  { id: 'e23', name: 'Trivia' },
+  { id: 'e24', name: 'Hot Sauce Challenge' }
 ];
 
 // ============================================
